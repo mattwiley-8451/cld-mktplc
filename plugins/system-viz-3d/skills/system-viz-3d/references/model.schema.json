@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "system-viz-3d/1",
+  "title": "system-viz-3d model",
+  "description": "A system architecture model rendered by system-viz-3d. See model-reference.md for meaning and examples. scripts/validate.py also checks cross-references, which this schema cannot.",
+  "type": "object",
+  "required": ["nodes"],
+  "properties": {
+    "schema": {"const": "system-viz-3d/1"},
+    "meta": {
+      "type": "object",
+      "properties": {
+        "title": {"type": "string"}, "subtitle": {"type": "string"}, "source": {"type": "string"},
+        "asOf": {"type": "string"}, "summary": {"type": "string"}, "issuesIntro": {"type": "string"},
+        "notes": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "vocab": {
+      "type": "object",
+      "properties": {
+        "status": {"type": "object", "additionalProperties": {
+          "type": "object", "required": ["label", "style"],
+          "properties": {
+            "label": {"type": "string"},
+            "style": {"enum": ["solid", "glass", "ghost", "missing"]},
+            "toggle": {"type": "string"}, "toggleDefault": {"type": "boolean"}
+          }}},
+        "kinds": {"type": "object", "additionalProperties": {
+          "type": "object", "required": ["label"],
+          "properties": {
+            "label": {"type": "string"}, "color": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+            "shape": {"$ref": "#/$defs/shape"}, "priority": {"type": "number"}
+          }}},
+        "linkTypes": {"type": "object", "additionalProperties": {
+          "type": "object", "properties": {"label": {"type": "string"}, "explain": {"type": "string"}}}},
+        "envs": {"type": "object", "additionalProperties": {"type": "object", "properties": {"label": {"type": "string"}}}},
+        "confidence": {"type": "object", "additionalProperties": {"type": "string"}}
+      }
+    },
+    "zones": {"type": "array", "items": {"type": "object", "required": ["id"],
+      "properties": {"id": {"type": "string"}, "label": {"type": "string"}, "color": {"type": "string"}}}},
+    "floors": {"type": "array", "items": {"type": "object", "required": ["id"],
+      "properties": {"id": {"type": "string"}, "label": {"type": "string"}, "level": {"type": "number"}}}},
+    "groups": {"type": "array", "items": {"allOf": [{"$ref": "#/$defs/item"}, {"type": "object",
+      "properties": {"style": {"enum": ["glass", "slab", "plate"]}, "parent": {"type": "string"}}}]}},
+    "nodes": {"type": "array", "items": {"allOf": [{"$ref": "#/$defs/item"}, {"type": "object", "required": ["kind"],
+      "properties": {
+        "group": {"type": "string"}, "shape": {"$ref": "#/$defs/shape"},
+        "size": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+        "replicas": {"type": "array", "items": {"type": "string"}},
+        "pin": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}
+      }}]}},
+    "links": {"type": "array", "items": {"type": "object", "required": ["from", "to"],
+      "properties": {
+        "from": {"type": "string"}, "to": {"type": "string"}, "label": {"type": "string"},
+        "type": {"type": "string"}, "status": {"type": "string"}, "explain": {"type": "string"},
+        "note": {"type": "string"}, "source": {"type": "string"}, "confidence": {"type": "string"}
+      }}},
+    "gaps": {"type": "array", "items": {"type": "object", "required": ["from", "to"],
+      "properties": {"from": {"type": "string"}, "to": {"type": "string"}, "label": {"type": "string"}, "explain": {"type": "string"}}}},
+    "flows": {"type": "array", "items": {"type": "object", "required": ["id"],
+      "properties": {
+        "id": {"type": "string"}, "label": {"type": "string"}, "color": {"type": "string"}, "status": {"type": "string"},
+        "path": {"$ref": "#/$defs/idList"}, "paths": {"type": "array", "items": {"$ref": "#/$defs/idList"}},
+        "quote": {"type": "string"}, "description": {"type": "string"}, "source": {"type": "string"}, "confidence": {"type": "string"}
+      }}},
+    "boundaries": {"type": "array", "items": {"type": "object", "required": ["id"],
+      "properties": {
+        "id": {"type": "string"}, "label": {"type": "string"}, "description": {"type": "string"},
+        "members": {"$ref": "#/$defs/idList"},
+        "records": {"type": "array", "items": {"type": "string"}}, "open": {"type": "array", "items": {"type": "string"}},
+        "toggle": {"type": "string"},
+        "boxes": {"type": "array", "items": {"type": "array", "items": {"type": "number"}, "minItems": 6, "maxItems": 6}}
+      }}},
+    "issues": {"type": "array", "items": {"type": "object", "required": ["id", "title"],
+      "properties": {
+        "id": {"type": "string"}, "title": {"type": "string"}, "category": {"type": "string"},
+        "members": {"$ref": "#/$defs/idList"},
+        "links": {"type": "array", "items": {"type": "array", "items": {"type": "string"}, "minItems": 2, "maxItems": 2}},
+        "needs": {"type": "array", "items": {"type": "object", "required": ["from", "to"],
+          "properties": {"from": {"type": "string"}, "to": {"type": "string"}, "label": {"type": "string"}}}},
+        "records": {"type": "array", "items": {"type": "string"}}, "cause": {"type": "string"},
+        "fix": {"type": "array", "items": {"type": "string"}}
+      }}},
+    "views": {"type": "array", "items": {"type": "object", "required": ["id"],
+      "properties": {
+        "id": {"type": "string"}, "label": {"type": "string"}, "focus": {"$ref": "#/$defs/idList"},
+        "target": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+        "r": {"type": "number"}, "theta": {"type": "number"}, "phi": {"type": "number"}
+      }}},
+    "steps": {"type": "array", "items": {"type": "object",
+      "properties": {
+        "title": {"type": "string"}, "text": {"type": "string"}, "view": {"type": "string"},
+        "focus": {"$ref": "#/$defs/idList"}, "flows": {"$ref": "#/$defs/idList"}, "boundaries": {"$ref": "#/$defs/idList"}
+      }}}
+  },
+  "$defs": {
+    "shape": {"enum": ["box", "tower", "cyl", "oct", "actor", "gate"]},
+    "idList": {"type": "array", "items": {"type": "string"}},
+    "item": {
+      "type": "object", "required": ["id"],
+      "properties": {
+        "id": {"type": "string"}, "label": {"type": "string"}, "short": {"type": "string"},
+        "kind": {"type": "string"}, "status": {"type": "string"}, "env": {"type": "string"},
+        "zone": {"type": "string"}, "floor": {"type": "string"},
+        "fields": {"type": "array", "items": {"type": "array", "items": {"type": "string"}, "minItems": 2, "maxItems": 2}},
+        "notes": {"type": "array", "items": {"type": "string"}},
+        "intent": {"type": "string"}, "source": {"type": "string"}, "confidence": {"type": "string"}
+      }
+    }
+  }
+}

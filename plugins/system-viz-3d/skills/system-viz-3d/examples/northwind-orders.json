@@ -1,0 +1,111 @@
+{
+  "schema": "system-viz-3d/1",
+  "meta": {
+    "title": "Northwind Orders: architecture and security boundaries",
+    "subtitle": "Fictional example system for system-viz-3d",
+    "source": "Northwind Orders design doc v2 (fictional)",
+    "asOf": "2026-11-01",
+    "summary": "An order web app and API on Kubernetes, with a database, a Key Vault and managed identities per environment, calling an external payment vendor.",
+    "issuesIntro": "Measured against the intended design: non-prod and prod each use their own resources.",
+    "notes": ["Everything here is invented for the example."]
+  },
+  "vocab": {
+    "envs": {"np": {"label": "Non-prod"}, "p": {"label": "Prod"}}
+  },
+  "zones": [
+    {"id": "nw", "label": "Northwind Azure tenant"},
+    {"id": "vendor", "label": "PayFast (payment vendor)"}
+  ],
+  "floors": [
+    {"id": "identity", "label": "Identity and access", "level": 1},
+    {"id": "ground", "label": "Runtime", "level": 0},
+    {"id": "gov", "label": "Governance", "level": -1}
+  ],
+  "groups": [
+    {"id": "sub_np", "label": "Subscription: Nonprod", "style": "plate", "zone": "nw", "floor": "ground", "env": "np", "source": "Design doc, section 3", "confidence": "recorded"},
+    {"id": "rg_np", "label": "rg-orders-np", "style": "glass", "parent": "sub_np", "kind": "container", "env": "np", "status": "planned", "fields": [["Region", "eastus2"]], "confidence": "recorded"},
+    {"id": "aks_np", "label": "aks-orders-np", "style": "slab", "parent": "rg_np", "kind": "compute", "env": "np", "confidence": "recorded"},
+    {"id": "sub_p", "label": "Subscription: Prod", "style": "plate", "zone": "nw", "floor": "ground", "env": "p", "confidence": "recorded"},
+    {"id": "rg_p", "label": "rg-orders-prod", "style": "glass", "parent": "sub_p", "kind": "container", "env": "p", "confidence": "recorded"},
+    {"id": "aks_p", "label": "aks-orders-prod", "style": "slab", "parent": "rg_p", "kind": "compute", "env": "p", "confidence": "recorded"}
+  ],
+  "nodes": [
+    {"id": "web_np", "label": "Orders web (non-prod)", "short": "Web NP", "kind": "app", "group": "aks_np", "env": "np", "confidence": "recorded"},
+    {"id": "api_np", "label": "Orders API (non-prod)", "short": "API NP", "kind": "app", "group": "aks_np", "env": "np", "confidence": "recorded"},
+    {"id": "db_np", "label": "orders-db-np", "kind": "data", "group": "rg_np", "env": "np", "status": "planned", "confidence": "recorded"},
+    {"id": "kv_np", "label": "kv-orders-np", "kind": "secret", "group": "rg_np", "env": "np", "confidence": "recorded"},
+    {"id": "web_p", "label": "Orders web (prod)", "short": "Web Prod", "kind": "app", "group": "aks_p", "env": "p", "confidence": "recorded",
+     "fields": [["URL", "https://orders.northwind.example"], ["Replicas", "3"]]},
+    {"id": "api_p", "label": "Orders API (prod)", "short": "API Prod", "kind": "app", "group": "aks_p", "env": "p", "confidence": "recorded",
+     "notes": ["Uses the non-prod identity, see issue 1"]},
+    {"id": "db_p", "label": "orders-db-prod", "kind": "data", "group": "rg_p", "env": "p", "confidence": "recorded", "fields": [["Engine", "PostgreSQL Flexible Server"], ["Backups", "7 days"]]},
+    {"id": "kv_p", "label": "kv-orders-prod", "kind": "secret", "group": "rg_p", "env": "p", "confidence": "recorded"},
+    {"id": "cache_p", "label": "Redis cache (assumed)", "short": "Cache (assumed)", "kind": "data", "group": "rg_p", "env": "p", "status": "unknown", "confidence": "inferred", "notes": ["The API code mentions a cache; the design doc does not."]},
+    {"id": "mi_np", "label": "mi-orders-np", "kind": "identity", "zone": "nw", "floor": "ground", "env": "np", "confidence": "recorded"},
+    {"id": "mi_p", "label": "mi-orders-prod", "kind": "identity", "zone": "nw", "floor": "ground", "env": "p", "confidence": "recorded"},
+    {"id": "egress", "label": "Egress rule to PayFast", "short": "Egress rule", "kind": "network", "zone": "nw", "floor": "ground", "status": "planned", "confidence": "recorded",
+     "fields": [["Port", "tcp/443"], ["Destination", "api.payfast.example"]]},
+    {"id": "obs", "label": "Log Analytics workspace", "short": "Log Analytics", "kind": "shared", "zone": "nw", "floor": "ground", "confidence": "recorded"},
+    {"id": "alert", "label": "Alerting (missing)", "short": "Alerting (missing)", "kind": "shared", "zone": "nw", "floor": "ground", "status": "missing", "intent": "Every environment should page the on-call team for API errors and payment failures."},
+    {"id": "payapi", "label": "PayFast payments API", "short": "PayFast API", "kind": "external", "zone": "vendor", "floor": "ground", "confidence": "recorded", "fields": [["Auth", "API key"], ["Contract", "Enterprise tier"]]},
+    {"id": "users", "label": "Customers and staff", "short": "Users", "kind": "person", "zone": "nw", "floor": "identity", "confidence": "recorded"},
+    {"id": "entra", "label": "Entra ID app: Orders", "short": "Entra app", "kind": "identity", "shape": "box", "zone": "nw", "floor": "identity", "confidence": "recorded"},
+    {"id": "role_dev", "label": "Role: Orders developers", "short": "Role: developers", "kind": "identity", "shape": "box", "zone": "nw", "floor": "identity", "status": "planned", "confidence": "stated"},
+    {"id": "policy", "label": "Data classification: Confidential", "short": "Classification", "kind": "governance", "zone": "nw", "floor": "gov", "confidence": "recorded"},
+    {"id": "cab", "label": "Change approval board", "short": "Change board", "kind": "governance", "zone": "nw", "floor": "gov", "confidence": "stated"}
+  ],
+  "links": [
+    {"from": "web_np", "to": "api_np", "label": "Calls", "type": "calls", "confidence": "recorded"},
+    {"from": "web_p", "to": "api_p", "label": "Calls", "type": "calls", "confidence": "recorded"},
+    {"from": "api_np", "to": "mi_np", "label": "Uses identity", "type": "identity", "confidence": "recorded"},
+    {"from": "api_p", "to": "mi_np", "label": "Uses identity", "type": "identity", "confidence": "recorded", "note": "The prod API is wired to the non-prod identity."},
+    {"from": "mi_np", "to": "kv_np", "label": "Get secrets", "type": "secrets", "confidence": "recorded"},
+    {"from": "mi_p", "to": "kv_p", "label": "Get secrets", "type": "secrets", "confidence": "recorded"},
+    {"from": "mi_np", "to": "db_np", "label": "Read and write", "type": "data", "confidence": "recorded"},
+    {"from": "mi_p", "to": "db_p", "label": "Read and write", "type": "data", "confidence": "recorded"},
+    {"from": "api_p", "to": "egress", "label": "Outbound HTTPS", "type": "network", "status": "planned", "confidence": "recorded"},
+    {"from": "egress", "to": "payapi", "label": "tcp/443", "type": "network", "status": "planned", "confidence": "recorded"},
+    {"from": "web_np", "to": "obs", "label": "Diagnostic logs", "type": "logging", "confidence": "recorded"},
+    {"from": "web_p", "to": "obs", "label": "Diagnostic logs", "type": "logging", "confidence": "recorded"},
+    {"from": "api_p", "to": "obs", "label": "Diagnostic logs", "type": "logging", "confidence": "recorded"},
+    {"from": "users", "to": "entra", "label": "Sign in", "type": "access", "confidence": "recorded"},
+    {"from": "entra", "to": "web_p", "label": "Grants access", "type": "access", "confidence": "recorded"},
+    {"from": "role_dev", "to": "kv_np", "label": "Secret officer", "type": "access", "status": "planned", "confidence": "stated"},
+    {"from": "policy", "to": "db_p", "label": "Classifies", "type": "governance", "confidence": "recorded"},
+    {"from": "cab", "to": "aks_p", "label": "Approves changes", "type": "governance", "confidence": "stated"}
+  ],
+  "gaps": [
+    {"from": "api_np", "to": "payapi", "label": "No sandbox endpoint recorded", "explain": "The design doc has no path from non-prod to the PayFast sandbox, so non-prod payment testing is undefined."}
+  ],
+  "flows": [
+    {"id": "checkout", "label": "Checkout", "color": "#ED93B1", "status": "planned", "paths": [["users", "web_p", "api_p", "egress", "payapi"]], "quote": "Customers check out on the web app; the API charges the card through PayFast.", "source": "Design doc, section 5", "confidence": "recorded"},
+    {"id": "secrets", "label": "Secret read", "color": "#AFA9EC", "paths": [["kv_p", "mi_p", "api_p"]], "quote": "The API reads its PayFast key from Key Vault through its managed identity.", "source": "Design doc, section 4", "confidence": "recorded"},
+    {"id": "logs", "label": "Logs", "color": "#D3D1C7", "paths": [["web_p", "obs"], ["api_p", "obs"]], "quote": "Diagnostic logs go to Log Analytics.", "confidence": "recorded"}
+  ],
+  "boundaries": [
+    {"id": "B1", "short": "B1 Identity", "label": "Identity", "members": ["users", "entra", "role_dev"], "records": ["Users sign in through the Entra app"], "open": ["No MFA policy recorded"]},
+    {"id": "B2", "label": "Workload", "members": ["aks_np", "aks_p"], "records": ["Each environment has its own cluster"], "open": ["Network policies not described"]},
+    {"id": "B3", "label": "Secrets and data", "members": ["db_np", "db_p", "kv_np", "kv_p", "mi_np", "mi_p"], "records": ["Managed identities reach the vaults and databases"], "open": ["Private endpoints not described"]},
+    {"id": "B4", "short": "B4 Vendor edge", "label": "Vendor edge", "members": ["egress", "payapi"], "records": ["One egress rule to PayFast on tcp/443"], "open": ["Egress rule is not yet approved", "No non-prod path"]}
+  ],
+  "issues": [
+    {"id": "i1", "title": "Prod API uses the non-prod identity", "category": "Environment mix-up", "members": ["api_p", "mi_np", "mi_p"],
+     "links": [["api_p", "mi_np"]], "needs": [{"from": "api_p", "to": "mi_p", "label": "Should use mi-orders-prod"}],
+     "records": ["Orders API (prod) uses mi-orders-np", "mi-orders-prod is not used by any workload"],
+     "cause": "The prod deployment was copied from non-prod and the identity was not repointed.",
+     "fix": ["Point the prod API at mi-orders-prod", "Remove mi-orders-np from the prod deployment"]},
+    {"id": "i2", "title": "No alerting", "category": "Missing from source", "members": ["alert", "obs"],
+     "needs": [{"from": "obs", "to": "alert", "label": "Should raise alerts"}],
+     "records": ["Logs go to Log Analytics, but nothing alerts on them"],
+     "fix": ["Add alert rules for API errors and payment failures", "Name an on-call owner"]}
+  ],
+  "views": [
+    {"id": "vendor-edge", "label": "Vendor edge", "focus": ["egress", "payapi", "api_p"], "theta": -60, "phi": 60}
+  ],
+  "steps": [
+    {"title": "Northwind Orders", "view": "overview", "flows": ["all"], "text": "Two environments in one tenant, calling one external vendor."},
+    {"title": "1. Sign in", "focus": ["users", "entra", "web_p"], "boundaries": ["B1"], "text": "Users sign in through the Entra app, which grants access to the prod web app."},
+    {"title": "2. Checkout", "flows": ["checkout"], "focus": ["web_p", "api_p", "egress", "payapi"], "boundaries": ["B4"], "text": "The API charges the card through the egress rule to PayFast."},
+    {"title": "3. Secrets", "flows": ["secrets"], "focus": ["kv_p", "mi_p", "api_p", "mi_np"], "boundaries": ["B3"], "text": "The design says the API reads its key through mi-orders-prod, but the API is wired to mi-orders-np (issue 1)."}
+  ]
+}

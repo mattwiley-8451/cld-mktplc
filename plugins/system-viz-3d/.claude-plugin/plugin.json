@@ -1,0 +1,8 @@
+{
+  "name": "system-viz-3d",
+  "description": "Build self-contained, interactive 3D HTML visualizations of system architectures from a JSON model",
+  "version": "0.1.0",
+  "author": {
+    "name": "Matt Wiley"
+  }
+}

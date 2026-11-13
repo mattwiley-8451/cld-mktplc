@@ -9,6 +9,11 @@
       "name": "hello-plugin",
       "source": "./plugins/hello-plugin",
       "description": "Trivial example plugin that greets the user"
+    },
+    {
+      "name": "system-viz-3d",
+      "source": "./plugins/system-viz-3d",
+      "description": "Build self-contained, interactive 3D HTML visualizations of system architectures from a JSON model"
     }
   ]
 }

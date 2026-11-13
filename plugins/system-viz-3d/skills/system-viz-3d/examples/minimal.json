@@ -1,0 +1,16 @@
+{
+  "schema": "system-viz-3d/1",
+  "meta": {"title": "Minimal example", "summary": "Three nodes and two links, using the default vocabulary."},
+  "nodes": [
+    {"id": "web", "label": "Web app", "kind": "app", "source": "Whiteboard sketch", "confidence": "stated"},
+    {"id": "api", "label": "API", "kind": "app", "confidence": "stated"},
+    {"id": "db", "label": "Database", "kind": "data", "confidence": "stated"}
+  ],
+  "links": [
+    {"from": "web", "to": "api", "label": "HTTPS", "type": "calls", "confidence": "stated"},
+    {"from": "api", "to": "db", "label": "SQL", "type": "data", "confidence": "stated"}
+  ],
+  "flows": [
+    {"id": "request", "label": "Page request", "paths": [["web", "api", "db"]], "quote": "Each page load queries the database through the API."}
+  ]
+}

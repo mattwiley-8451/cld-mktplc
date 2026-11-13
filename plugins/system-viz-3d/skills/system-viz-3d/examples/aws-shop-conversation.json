@@ -1,0 +1,1100 @@
+{
+ "schema": "system-viz-3d/1",
+ "meta": {
+  "title": "Online shop on AWS: trust boundaries and payment flow",
+  "subtitle": "Architecture review draft: shop-dev and shop-prod, with Stripe and Auth0",
+  "source": "Team's verbal description in the review request (no Terraform, console export or diagram was supplied)",
+  "asOf": "2026-11-13",
+  "summary": "Two AWS accounts, shop-dev and shop-prod, each with a VPC (public and private subnets), an ALB, an ECS Fargate service running the storefront and the orders API, RDS Postgres, Secrets Manager holding the Stripe key, and CloudWatch logs. Prod adds CloudFront with WAF in front of the ALB. The orders API calls Stripe through a NAT gateway. Customers log in with Auth0; the storefront validates the tokens Auth0 issues.",
+  "issuesIntro": "Measured against the usual review expectations: dev and prod use only their own resources, payment failures page someone, and internet-facing entry points are protected.",
+  "notes": [
+   "Everything comes from one conversation. Chips say whether the team stated it or the modeller inferred it; the status 'Suspected, not confirmed' marks the team's own unconfirmed suspicion. Nothing here was checked against live config.",
+   "The dev-to-prod secret link is a team suspicion, not a confirmed fact. Turn on the Issues layer to see it.",
+   "Hops the team did not describe (ALB to storefront, storefront to orders API, orders API to RDS, orders API to Secrets Manager) are drawn as inferred links.",
+   "Not stated, worth asking: whether dev uses a separate Auth0 tenant and a Stripe test-mode key, which subnet RDS sits in, whether the dev ALB is internet-facing, and whether storefront and orders API are one ECS service or two."
+  ]
+ },
+ "vocab": {
+  "status": {
+   "exists": {
+    "label": "Exists, as described",
+    "style": "solid"
+   },
+   "suspected": {
+    "label": "Suspected, not confirmed",
+    "style": "ghost",
+    "toggle": "Issues"
+   },
+   "missing": {
+    "label": "Missing: needed, not present",
+    "style": "missing",
+    "toggle": "Issues"
+   }
+  },
+  "confidence": {
+   "stated": "Stated by the team in the review request",
+   "inferred": "Modeller's inference, not stated"
+  },
+  "envs": {
+   "dev": {
+    "label": "shop-dev"
+   },
+   "prod": {
+    "label": "shop-prod"
+   }
+  }
+ },
+ "zones": [
+  {
+   "id": "auth0",
+   "label": "Auth0 (customer identity vendor)"
+  },
+  {
+   "id": "internet",
+   "label": "Internet"
+  },
+  {
+   "id": "prod",
+   "label": "AWS account: shop-prod"
+  },
+  {
+   "id": "dev",
+   "label": "AWS account: shop-dev"
+  },
+  {
+   "id": "stripe",
+   "label": "Stripe (payments vendor)"
+  }
+ ],
+ "floors": [
+  {
+   "id": "runtime",
+   "label": "Runtime",
+   "level": 0
+  },
+  {
+   "id": "ops",
+   "label": "Logs and alerting",
+   "level": -1
+  }
+ ],
+ "groups": [
+  {
+   "id": "acct_p",
+   "label": "AWS account: shop-prod",
+   "short": "shop-prod",
+   "style": "plate",
+   "zone": "prod",
+   "floor": "runtime",
+   "env": "prod",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "id": "vpc_p",
+   "label": "VPC (shop-prod)",
+   "short": "VPC prod",
+   "style": "glass",
+   "parent": "acct_p",
+   "kind": "network",
+   "env": "prod",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "id": "priv_p",
+   "label": "Private subnet (shop-prod)",
+   "short": "Private subnet",
+   "style": "glass",
+   "parent": "vpc_p",
+   "kind": "network",
+   "env": "prod",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "id": "ecs_p",
+   "label": "ECS Fargate service (shop-prod)",
+   "short": "ECS Fargate",
+   "style": "slab",
+   "parent": "priv_p",
+   "kind": "compute",
+   "env": "prod",
+   "confidence": "stated",
+   "source": "Review request",
+   "notes": [
+    "The request says 'an ECS Fargate service running the storefront and an orders API'. Whether that is one service with two containers or two services is not stated."
+   ]
+  },
+  {
+   "id": "pub_p",
+   "label": "Public subnet (shop-prod)",
+   "short": "Public subnet",
+   "style": "glass",
+   "parent": "vpc_p",
+   "kind": "network",
+   "env": "prod",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "id": "acct_d",
+   "label": "AWS account: shop-dev",
+   "short": "shop-dev",
+   "style": "plate",
+   "zone": "dev",
+   "floor": "runtime",
+   "env": "dev",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "id": "vpc_d",
+   "label": "VPC (shop-dev)",
+   "short": "VPC dev",
+   "style": "glass",
+   "parent": "acct_d",
+   "kind": "network",
+   "env": "dev",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "id": "priv_d",
+   "label": "Private subnet (shop-dev)",
+   "short": "Private subnet",
+   "style": "glass",
+   "parent": "vpc_d",
+   "kind": "network",
+   "env": "dev",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "id": "ecs_d",
+   "label": "ECS Fargate service (shop-dev)",
+   "short": "ECS Fargate",
+   "style": "slab",
+   "parent": "priv_d",
+   "kind": "compute",
+   "env": "dev",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "id": "pub_d",
+   "label": "Public subnet (shop-dev)",
+   "short": "Public subnet",
+   "style": "glass",
+   "parent": "vpc_d",
+   "kind": "network",
+   "env": "dev",
+   "confidence": "stated",
+   "source": "Review request"
+  }
+ ],
+ "nodes": [
+  {
+   "id": "auth0",
+   "label": "Auth0 tenant (customer login)",
+   "short": "Auth0",
+   "kind": "identity",
+   "shape": "box",
+   "zone": "auth0",
+   "floor": "runtime",
+   "confidence": "stated",
+   "source": "Review request",
+   "fields": [
+    [
+     "Role",
+     "Customer login, issues tokens"
+    ],
+    [
+     "Tenants per env",
+     "Not stated"
+    ]
+   ],
+   "notes": [
+    "Whether dev and prod share one Auth0 tenant or each have their own is not stated."
+   ]
+  },
+  {
+   "id": "customers",
+   "label": "Customers",
+   "kind": "person",
+   "zone": "internet",
+   "floor": "runtime",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "id": "waf_p",
+   "label": "AWS WAF web ACL on CloudFront",
+   "short": "WAF",
+   "kind": "network",
+   "shape": "gate",
+   "group": "acct_p",
+   "env": "prod",
+   "confidence": "stated",
+   "source": "Review request",
+   "notes": [
+    "Rule set not described."
+   ]
+  },
+  {
+   "id": "cf_p",
+   "label": "CloudFront distribution (shop-prod)",
+   "short": "CloudFront",
+   "kind": "network",
+   "shape": "box",
+   "group": "acct_p",
+   "env": "prod",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "id": "sm_p",
+   "label": "Secrets Manager: Stripe key (shop-prod)",
+   "short": "Secrets Mgr prod",
+   "kind": "secret",
+   "group": "acct_p",
+   "env": "prod",
+   "confidence": "stated",
+   "source": "Review request",
+   "fields": [
+    [
+     "Holds",
+     "Stripe API key (presumably live mode)"
+    ],
+    [
+     "Resource policy",
+     "Not described"
+    ],
+    [
+     "KMS key",
+     "Not described"
+    ]
+   ],
+   "notes": [
+    "Suspected to be read by the dev orders API as well; see the issue."
+   ]
+  },
+  {
+   "id": "alb_p",
+   "label": "Application Load Balancer (shop-prod)",
+   "short": "ALB prod",
+   "kind": "network",
+   "shape": "gate",
+   "group": "pub_p",
+   "env": "prod",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "id": "nat_p",
+   "label": "NAT gateway (shop-prod)",
+   "short": "NAT prod",
+   "kind": "network",
+   "shape": "gate",
+   "group": "pub_p",
+   "env": "prod",
+   "confidence": "stated",
+   "source": "Review request",
+   "notes": [
+    "The request mentions a NAT gateway for the orders API's Stripe calls without naming an account; drawn in both. Placed in the public subnet, where NAT gateways normally live (inferred)."
+   ]
+  },
+  {
+   "id": "store_p",
+   "label": "Storefront (shop-prod)",
+   "short": "Storefront prod",
+   "kind": "app",
+   "group": "ecs_p",
+   "env": "prod",
+   "confidence": "stated",
+   "source": "Review request",
+   "notes": [
+    "Validates Auth0-issued tokens."
+   ]
+  },
+  {
+   "id": "orders_p",
+   "label": "Orders API (shop-prod)",
+   "short": "Orders API prod",
+   "kind": "app",
+   "group": "ecs_p",
+   "env": "prod",
+   "confidence": "stated",
+   "source": "Review request",
+   "notes": [
+    "Calls Stripe through the NAT gateway.",
+    "No alerting on payment failures."
+   ]
+  },
+  {
+   "id": "rds_p",
+   "label": "RDS Postgres (shop-prod)",
+   "short": "RDS prod",
+   "kind": "data",
+   "group": "vpc_p",
+   "env": "prod",
+   "confidence": "stated",
+   "source": "Review request",
+   "fields": [
+    [
+     "Engine",
+     "PostgreSQL"
+    ],
+    [
+     "Subnet",
+     "Not stated"
+    ]
+   ],
+   "notes": [
+    "Drawn inside the VPC but outside both subnet boxes because the subnet was not stated."
+   ]
+  },
+  {
+   "id": "alb_d",
+   "label": "Application Load Balancer (shop-dev)",
+   "short": "ALB dev",
+   "kind": "network",
+   "shape": "gate",
+   "group": "pub_d",
+   "env": "dev",
+   "confidence": "stated",
+   "source": "Review request",
+   "notes": [
+    "No CloudFront or WAF in front (stated). Whether it is internet-facing or restricted is not stated."
+   ]
+  },
+  {
+   "id": "nat_d",
+   "label": "NAT gateway (shop-dev)",
+   "short": "NAT dev",
+   "kind": "network",
+   "shape": "gate",
+   "group": "pub_d",
+   "env": "dev",
+   "confidence": "inferred",
+   "source": "Review request mentions one NAT gateway without naming the account",
+   "notes": [
+    "Assumed to mirror prod. Confirm."
+   ]
+  },
+  {
+   "id": "store_d",
+   "label": "Storefront (shop-dev)",
+   "short": "Storefront dev",
+   "kind": "app",
+   "group": "ecs_d",
+   "env": "dev",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "id": "orders_d",
+   "label": "Orders API (shop-dev)",
+   "short": "Orders API dev",
+   "kind": "app",
+   "group": "ecs_d",
+   "env": "dev",
+   "confidence": "stated",
+   "source": "Review request",
+   "notes": [
+    "Team suspects its task definition points at the prod Secrets Manager (copied task definition). Not confirmed."
+   ]
+  },
+  {
+   "id": "rds_d",
+   "label": "RDS Postgres (shop-dev)",
+   "short": "RDS dev",
+   "kind": "data",
+   "group": "vpc_d",
+   "env": "dev",
+   "confidence": "stated",
+   "source": "Review request",
+   "fields": [
+    [
+     "Engine",
+     "PostgreSQL"
+    ],
+    [
+     "Subnet",
+     "Not stated"
+    ]
+   ]
+  },
+  {
+   "id": "sm_d",
+   "label": "Secrets Manager: Stripe key (shop-dev)",
+   "short": "Secrets Mgr dev",
+   "kind": "secret",
+   "group": "acct_d",
+   "env": "dev",
+   "confidence": "stated",
+   "source": "Review request",
+   "fields": [
+    [
+     "Holds",
+     "Stripe API key (test or live mode not stated)"
+    ]
+   ],
+   "notes": [
+    "If the suspicion is right, the dev orders API does not read this secret at all."
+   ]
+  },
+  {
+   "id": "stripe",
+   "label": "Stripe API",
+   "short": "Stripe",
+   "kind": "external",
+   "zone": "stripe",
+   "floor": "runtime",
+   "confidence": "stated",
+   "source": "Review request",
+   "fields": [
+    [
+     "Role",
+     "Payments"
+    ],
+    [
+     "Dev uses test mode?",
+     "Not stated"
+    ]
+   ]
+  },
+  {
+   "id": "cw_p",
+   "label": "CloudWatch Logs (shop-prod)",
+   "short": "CloudWatch prod",
+   "kind": "shared",
+   "zone": "prod",
+   "floor": "ops",
+   "env": "prod",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "id": "alert_p",
+   "label": "Alerting on payment failures (missing)",
+   "short": "Payment alerts (missing)",
+   "kind": "shared",
+   "zone": "prod",
+   "floor": "ops",
+   "env": "prod",
+   "status": "missing",
+   "confidence": "stated",
+   "source": "Review request: 'There's no alerting on payment failures yet.'",
+   "intent": "A failed or erroring Stripe charge should page someone in prod."
+  },
+  {
+   "id": "cw_d",
+   "label": "CloudWatch Logs (shop-dev)",
+   "short": "CloudWatch dev",
+   "kind": "shared",
+   "zone": "dev",
+   "floor": "ops",
+   "env": "dev",
+   "confidence": "stated",
+   "source": "Review request"
+  }
+ ],
+ "links": [
+  {
+   "from": "customers",
+   "to": "auth0",
+   "label": "Log in",
+   "type": "access",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "from": "store_p",
+   "to": "auth0",
+   "label": "Validates Auth0 tokens",
+   "type": "identity",
+   "explain": "The storefront accepts tokens Auth0 issued and checks them before trusting the customer.",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "from": "store_d",
+   "to": "auth0",
+   "label": "Validates Auth0 tokens",
+   "type": "identity",
+   "explain": "The storefront accepts tokens Auth0 issued and checks them before trusting the customer.",
+   "confidence": "inferred",
+   "note": "Assumed to mirror prod; dev Auth0 tenant not stated."
+  },
+  {
+   "from": "customers",
+   "to": "cf_p",
+   "label": "HTTPS",
+   "type": "calls",
+   "confidence": "inferred",
+   "note": "CloudFront is 'in front of the ALB', so customers presumably reach prod through it."
+  },
+  {
+   "from": "waf_p",
+   "to": "cf_p",
+   "label": "Web ACL attached",
+   "type": "network",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "from": "cf_p",
+   "to": "alb_p",
+   "label": "Origin",
+   "type": "network",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "from": "alb_p",
+   "to": "store_p",
+   "label": "Forwards requests",
+   "type": "calls",
+   "confidence": "inferred"
+  },
+  {
+   "from": "store_p",
+   "to": "orders_p",
+   "label": "Places orders",
+   "type": "calls",
+   "confidence": "inferred"
+  },
+  {
+   "from": "orders_p",
+   "to": "rds_p",
+   "label": "Read and write orders",
+   "type": "data",
+   "confidence": "inferred"
+  },
+  {
+   "from": "orders_p",
+   "to": "sm_p",
+   "label": "Reads Stripe key",
+   "type": "secrets",
+   "confidence": "inferred",
+   "note": "The request says Secrets Manager holds the Stripe key and the orders API calls Stripe; the read itself was not described."
+  },
+  {
+   "from": "orders_p",
+   "to": "nat_p",
+   "label": "Outbound HTTPS",
+   "type": "network",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "from": "nat_p",
+   "to": "stripe",
+   "label": "To Stripe API",
+   "type": "network",
+   "confidence": "stated",
+   "source": "Review request"
+  },
+  {
+   "from": "ecs_p",
+   "to": "cw_p",
+   "label": "Container logs",
+   "type": "logging",
+   "confidence": "stated",
+   "source": "Review request: 'CloudWatch for logs'"
+  },
+  {
+   "from": "alb_d",
+   "to": "store_d",
+   "label": "Forwards requests",
+   "type": "calls",
+   "confidence": "inferred"
+  },
+  {
+   "from": "store_d",
+   "to": "orders_d",
+   "label": "Places orders",
+   "type": "calls",
+   "confidence": "inferred"
+  },
+  {
+   "from": "orders_d",
+   "to": "rds_d",
+   "label": "Read and write orders",
+   "type": "data",
+   "confidence": "inferred"
+  },
+  {
+   "from": "orders_d",
+   "to": "sm_p",
+   "label": "Reads prod Stripe key (suspected)",
+   "type": "secrets",
+   "status": "suspected",
+   "confidence": "stated",
+   "source": "Review request: 'We think dev's orders API is pointed at the prod Secrets Manager because someone copied the task definition, but that's not confirmed.'",
+   "note": "Cross-account and cross-environment. Unconfirmed."
+  },
+  {
+   "from": "orders_d",
+   "to": "nat_d",
+   "label": "Outbound HTTPS",
+   "type": "network",
+   "confidence": "inferred"
+  },
+  {
+   "from": "nat_d",
+   "to": "stripe",
+   "label": "To Stripe API",
+   "type": "network",
+   "confidence": "inferred"
+  },
+  {
+   "from": "ecs_d",
+   "to": "cw_d",
+   "label": "Container logs",
+   "type": "logging",
+   "confidence": "stated",
+   "source": "Review request: 'CloudWatch for logs'"
+  }
+ ],
+ "flows": [
+  {
+   "id": "login",
+   "label": "Customer login",
+   "color": "#85B7EB",
+   "paths": [
+    [
+     "customers",
+     "auth0",
+     "store_p"
+    ]
+   ],
+   "quote": "Customers log in with Auth0, which issues tokens the storefront validates.",
+   "source": "Review request",
+   "confidence": "stated"
+  },
+  {
+   "id": "checkout",
+   "label": "Checkout request",
+   "color": "#5DCAA5",
+   "paths": [
+    [
+     "customers",
+     "cf_p",
+     "alb_p",
+     "store_p",
+     "orders_p"
+    ]
+   ],
+   "quote": "Prod also has a CloudFront distribution in front of the ALB and WAF on it.",
+   "description": "The edge part is stated; the hops from the ALB to the storefront and on to the orders API are inferred.",
+   "source": "Review request",
+   "confidence": "inferred"
+  },
+  {
+   "id": "payment",
+   "label": "Payment call to Stripe (prod)",
+   "color": "#ED93B1",
+   "paths": [
+    [
+     "orders_p",
+     "nat_p",
+     "stripe"
+    ]
+   ],
+   "quote": "The orders API calls Stripe through a NAT gateway.",
+   "source": "Review request",
+   "confidence": "stated"
+  },
+  {
+   "id": "key_p",
+   "label": "Stripe key read (prod)",
+   "color": "#AFA9EC",
+   "paths": [
+    [
+     "sm_p",
+     "orders_p"
+    ]
+   ],
+   "quote": "Secrets Manager holding the Stripe key.",
+   "source": "Review request",
+   "confidence": "inferred"
+  },
+  {
+   "id": "payment_d",
+   "label": "Payment call to Stripe (dev)",
+   "color": "#F0B37E",
+   "paths": [
+    [
+     "orders_d",
+     "nat_d",
+     "stripe"
+    ]
+   ],
+   "quote": "The orders API calls Stripe through a NAT gateway.",
+   "source": "Review request (account not named)",
+   "confidence": "inferred"
+  },
+  {
+   "id": "key_d_suspect",
+   "label": "Prod Stripe key read by dev (suspected)",
+   "color": "#E24B4A",
+   "status": "suspected",
+   "paths": [
+    [
+     "sm_p",
+     "orders_d"
+    ]
+   ],
+   "quote": "We think dev's orders API is pointed at the prod Secrets Manager because someone copied the task definition, but that's not confirmed.",
+   "source": "Review request",
+   "confidence": "stated"
+  },
+  {
+   "id": "logs",
+   "label": "Logs",
+   "color": "#D3D1C7",
+   "paths": [
+    [
+     "ecs_p",
+     "cw_p"
+    ],
+    [
+     "ecs_d",
+     "cw_d"
+    ]
+   ],
+   "quote": "CloudWatch for logs.",
+   "source": "Review request",
+   "confidence": "stated"
+  }
+ ],
+ "boundaries": [
+  {
+   "id": "Prod edge",
+   "label": "Prod internet edge",
+   "members": [
+    "waf_p",
+    "cf_p",
+    "alb_p"
+   ],
+   "records": [
+    "CloudFront sits in front of the prod ALB with WAF on it"
+   ],
+   "open": [
+    "WAF rules not described",
+    "Whether the ALB accepts traffic only from CloudFront is not stated; if not, the WAF can be bypassed"
+   ]
+  },
+  {
+   "id": "shop-prod",
+   "label": "AWS account: shop-prod",
+   "members": [
+    "acct_p",
+    "vpc_p",
+    "waf_p",
+    "cf_p",
+    "alb_p",
+    "nat_p",
+    "store_p",
+    "orders_p",
+    "rds_p",
+    "sm_p",
+    "cw_p",
+    "alert_p"
+   ],
+   "records": [
+    "Own VPC, ALB, ECS Fargate service, RDS, Secrets Manager and CloudWatch"
+   ],
+   "open": [
+    "Whether the prod Stripe secret's resource policy or KMS key policy allows the shop-dev account"
+   ]
+  },
+  {
+   "id": "shop-dev",
+   "label": "AWS account: shop-dev",
+   "members": [
+    "acct_d",
+    "vpc_d",
+    "alb_d",
+    "nat_d",
+    "store_d",
+    "orders_d",
+    "rds_d",
+    "sm_d",
+    "cw_d"
+   ],
+   "records": [
+    "Own VPC, ALB, ECS Fargate service, RDS, Secrets Manager and CloudWatch",
+    "No CloudFront or WAF"
+   ],
+   "open": [
+    "Suspected to read the prod Stripe key",
+    "Whether the dev ALB is internet-facing"
+   ]
+  },
+  {
+   "id": "Stripe",
+   "label": "Stripe (third party)",
+   "members": [
+    "stripe"
+   ],
+   "records": [
+    "The orders API calls Stripe through a NAT gateway"
+   ],
+   "open": [
+    "Whether dev uses a Stripe test-mode key",
+    "How card details are collected (Stripe-hosted fields or the storefront), which sets PCI scope",
+    "Whether Stripe webhooks call back into the shop"
+   ]
+  },
+  {
+   "id": "Auth0",
+   "label": "Auth0 (third party)",
+   "members": [
+    "auth0"
+   ],
+   "records": [
+    "Customers log in with Auth0; the storefront validates the tokens"
+   ],
+   "open": [
+    "One Auth0 tenant for both environments, or one each",
+    "Whether the orders API also checks the customer's token or trusts the storefront"
+   ]
+  }
+ ],
+ "issues": [
+  {
+   "id": "i1",
+   "title": "Dev orders API may read the prod Stripe key",
+   "category": "Environment mix-up (suspected)",
+   "members": [
+    "orders_d",
+    "sm_p",
+    "sm_d"
+   ],
+   "links": [
+    [
+     "orders_d",
+     "sm_p"
+    ]
+   ],
+   "needs": [
+    {
+     "from": "orders_d",
+     "to": "sm_d",
+     "label": "Should read the shop-dev secret"
+    }
+   ],
+   "records": [
+    "Team: dev's orders API is thought to point at the prod Secrets Manager, because a task definition was copied. Not confirmed."
+   ],
+   "cause": "Team's hypothesis: the dev task definition was copied from prod and its secret ARN was not changed. Inference: a cross-account read only works if the prod secret's resource policy and its KMS key both allow shop-dev, so checking those also confirms or rules this out. If it is true, dev may be making live Stripe charges.",
+   "fix": [
+    "Confirm: compare the secret ARNs in the dev orders API task definition with the shop-prod account",
+    "Confirm: search shop-prod CloudTrail for GetSecretValue calls from shop-dev principals",
+    "If confirmed: point dev at its own secret with a Stripe test-mode key, remove any cross-account grant, and rotate the prod Stripe key",
+    "Prevent: deny cross-account access in the prod secret's resource policy"
+   ]
+  },
+  {
+   "id": "i2",
+   "title": "No alerting on payment failures",
+   "category": "Observability gap",
+   "members": [
+    "alert_p",
+    "cw_p",
+    "orders_p"
+   ],
+   "needs": [
+    {
+     "from": "cw_p",
+     "to": "alert_p",
+     "label": "Should alarm on payment failures"
+    }
+   ],
+   "records": [
+    "Team: there's no alerting on payment failures yet",
+    "Logs go to CloudWatch"
+   ],
+   "fix": [
+    "Log Stripe charge failures from the orders API in a consistent form",
+    "Add a CloudWatch metric filter and alarm on that log line, routed to an on-call channel",
+    "Name an owner for the alarm"
+   ]
+  },
+  {
+   "id": "i3",
+   "title": "Dev ALB has no CloudFront or WAF in front",
+   "category": "Review question (inferred risk)",
+   "members": [
+    "alb_d",
+    "store_d"
+   ],
+   "records": [
+    "Prod has CloudFront and WAF in front of its ALB; dev does not"
+   ],
+   "cause": "Not raised by the team. A public-subnet ALB without WAF is reachable from the internet unless something else restricts it, and dev may hold a prod secret (issue i1).",
+   "fix": [
+    "Confirm whether the dev ALB is internet-facing",
+    "If it is, restrict it to the team's IP ranges or VPN, or add a WAF"
+   ]
+  }
+ ],
+ "views": [
+  {
+   "id": "payment-path",
+   "label": "Payment path",
+   "focus": [
+    "store_p",
+    "orders_p",
+    "sm_p",
+    "nat_p",
+    "stripe"
+   ],
+   "theta": -30,
+   "phi": 55
+  },
+  {
+   "id": "cross-env",
+   "label": "Dev to prod secret",
+   "focus": [
+    "orders_d",
+    "sm_d",
+    "sm_p",
+    "orders_p"
+   ],
+   "theta": 20,
+   "phi": 50
+  },
+  {
+   "id": "identity",
+   "label": "Customer identity",
+   "focus": [
+    "customers",
+    "auth0",
+    "store_p"
+   ],
+   "theta": -40,
+   "phi": 55
+  }
+ ],
+ "steps": [
+  {
+   "title": "Online shop on AWS",
+   "view": "overview",
+   "text": "Two AWS accounts side by side (shop-prod, shop-dev), with Auth0 and customers on the left and Stripe on the right. Logs and alerting sit on the floor below. Chips on every item say whether the team stated it, suspects it, or it is inferred."
+  },
+  {
+   "title": "1. Trust boundaries",
+   "view": "overview",
+   "boundaries": [
+    "shop-prod",
+    "shop-dev",
+    "Stripe",
+    "Auth0",
+    "Prod edge"
+   ],
+   "text": "Each account is its own trust boundary, and so is each vendor. Every line that crosses a box is a trust decision; click any line to see which boundaries it leaves and enters."
+  },
+  {
+   "title": "2. Customer login",
+   "flows": [
+    "login"
+   ],
+   "focus": [
+    "customers",
+    "auth0",
+    "store_p",
+    "store_d"
+   ],
+   "boundaries": [
+    "Auth0"
+   ],
+   "view": "identity",
+   "text": "Customers log in with Auth0, which issues tokens the storefront validates. Not stated: whether dev and prod share one Auth0 tenant."
+  },
+  {
+   "title": "3. Into prod through the edge",
+   "flows": [
+    "checkout"
+   ],
+   "focus": [
+    "customers",
+    "waf_p",
+    "cf_p",
+    "alb_p",
+    "store_p",
+    "orders_p"
+   ],
+   "boundaries": [
+    "Prod edge"
+   ],
+   "text": "Customers reach prod through CloudFront, with WAF on the distribution, then the ALB in the public subnet. The hops past the ALB are inferred. Open question: can the ALB be reached directly, bypassing WAF?"
+  },
+  {
+   "title": "4. Payment to Stripe",
+   "flows": [
+    "key_p",
+    "payment"
+   ],
+   "focus": [
+    "orders_p",
+    "sm_p",
+    "nat_p",
+    "stripe"
+   ],
+   "boundaries": [
+    "shop-prod",
+    "Stripe"
+   ],
+   "view": "payment-path",
+   "text": "The orders API reads the Stripe key from Secrets Manager (inferred) and calls Stripe out through the NAT gateway (stated). This is where payment data leaves the account."
+  },
+  {
+   "title": "5. Dev and the prod secret (suspected)",
+   "flows": [
+    "key_d_suspect",
+    "payment_d"
+   ],
+   "focus": [
+    "orders_d",
+    "sm_d",
+    "sm_p",
+    "nat_d",
+    "stripe"
+   ],
+   "boundaries": [
+    "shop-prod",
+    "shop-dev"
+   ],
+   "view": "cross-env",
+   "text": "The team thinks the dev orders API reads the prod Stripe key because its task definition was copied. That is unconfirmed; see issue i1 for how to check. If true, dev may be charging real cards."
+  },
+  {
+   "title": "6. No payment-failure alerting",
+   "flows": [
+    "logs"
+   ],
+   "focus": [
+    "ecs_p",
+    "orders_p",
+    "cw_p",
+    "alert_p"
+   ],
+   "text": "Logs reach CloudWatch, but nothing alerts when a payment fails (issue i2)."
+  },
+  {
+   "title": "7. Dev edge",
+   "focus": [
+    "alb_d",
+    "store_d"
+   ],
+   "boundaries": [
+    "shop-dev"
+   ],
+   "text": "Dev has no CloudFront or WAF. Whether its ALB is reachable from the internet is not stated (issue i3)."
+  }
+ ]
+}
