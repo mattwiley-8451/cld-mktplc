@@ -1,0 +1,8 @@
+{
+  "name": "hello-plugin",
+  "description": "Trivial example plugin that greets the user",
+  "version": "0.1.0",
+  "author": {
+    "name": "Matt Wiley"
+  }
+}

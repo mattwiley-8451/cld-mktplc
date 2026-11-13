@@ -1,0 +1,14 @@
+{
+  "name": "cld-mktplc",
+  "description": "A minimal Claude Code plugin marketplace",
+  "owner": {
+    "name": "Matt Wiley"
+  },
+  "plugins": [
+    {
+      "name": "hello-plugin",
+      "source": "./plugins/hello-plugin",
+      "description": "Trivial example plugin that greets the user"
+    }
+  ]
+}
